@@ -1,57 +1,92 @@
 import cv2
-import numpy as np
+import operator
+import sys
 import glob
-import os
-from scipy import ndimage, misc
 
-#empty list to store template images
-template_dict = []
-
-#make a list of all template images from a directory
-files1= glob.glob('id_templates/*.jpeg')
-for curr_file in files1:
-    image = cv2.imread(curr_file, 0)
-    # assert image != None
-    if image is not None:
-        template_dict.append({curr_file: image})
-
-test_image = cv2.imread('driver1.jpg')
-test_image = cv2.cvtColor(test_image, cv2.COLOR_BGR2GRAY)
+#jgarcia23
 
 
-# loop for matching
-for tmp in template_dict:
+def find_best_match(templates, test_img):
+    # empty list of dictionaries to store template images
+    template_list_of_dict = []
+    # empty dict to store template images
+    template_dictionary = {}
 
-    temp = list(tmp.values())[0]
-    (tH, tW) = temp.shape[::-1]
+    # image to test
+    test_image = cv2.imread(test_img)
 
-    # cv2.imshow("Template", tmp)
-    # cv2.waitKey(500)
-    # cv2.destroyAllWindows()
-#
-    result = cv2.matchTemplate(test_image, temp, cv2.TM_CCOEFF)
+    # Convert to grayscale
+    test_image = cv2.cvtColor(test_image, cv2.COLOR_BGR2GRAY)
 
-    min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
+    # make a list of all template images from a directory
+    template_files = glob.glob(templates)
 
-    threshold = max_val > 80000000.0 and max_val < 90000000.0
+    for curr_file in template_files:
 
+        image = cv2.imread(curr_file, 0)
+        if image is not None:
+            template_list_of_dict.append({curr_file: image})
+            result = cv2.matchTemplate(test_image, image, cv2.TM_CCOEFF)
+            min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
 
-    if threshold:
-        cv2.imshow("Template", temp)
-        print(tmp.keys())
-        cv2.waitKey(500)
+            template_dictionary.update({curr_file: max_val})
 
-        top_left = max_loc
-        bottom_right = (top_left[0] + tW, top_left[1] + tH)
+    threshold = max(template_dictionary.items(), key=operator.itemgetter(1))[0]
+    state = threshold.strip('id_templates/''.jpeg''1')
 
-        cv2.rectangle(test_image, top_left, bottom_right, 255, 2)
-        cv2.imshow('Result', test_image)
-        cv2.waitKey(500)
+    return state, threshold
 
 
+def display_result(template_files, threshold,test_image):
+    template_files = glob.glob(template_files)
+
+    for i in template_files:
+        if threshold == i:
+
+            temp = cv2.imread(i, 0)
+
+            # Find template
+            res = cv2.matchTemplate(test_image, temp, cv2.TM_CCOEFF)
+            min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(res)
+            top_left = max_loc
+            h, w = temp.shape
+            bottom_right = (top_left[0] + w, top_left[1] + h)
+            cv2.rectangle(test_image, top_left, bottom_right, (0, 0, 255), 4)
+
+            # # Show result
+            cv2.imshow("Template", temp)
+            cv2.imshow("Result", test_image)
+            #
+            cv2.moveWindow("Template", 10, 50);
+            cv2.moveWindow("Result", 150, 50);
+            # #
+            cv2.waitKey(5000)
+            cv2.destroyAllWindows()
 
 
-# Show result
-cv2.imshow('Result',test_image)
-cv2.waitKey(0)
-quit(0)
+def process_args(args):
+    # parse commandline inputs
+    # if len(args) < 2:
+    #     print("USAGE: python3 state_det.py <path to templates> <path to image>")
+    #     return None
+
+    # templates_files = args[1]
+    # test_image = args[2]
+
+    templates = 'id_templates/*.jpeg'
+    test_img = 'driver3.jpg'
+
+    result, threshold = find_best_match(templates, test_img)
+    # print best match
+    print('this is a ', result, ' ID')
+
+    img = cv2.imread(test_img, 0)
+    display_result(templates, threshold,img)
+
+
+def main():
+    process_args(sys.argv)
+
+
+if __name__ == '__main__':
+    main()
